@@ -71,10 +71,12 @@ public class App {
             }
             GraphAdjList<String, String, Double> MSTGraph = createPathGraph(graph, childtoParent, vertexSize,
                     edgeThickness);
-            // Below needed to display larger graphs. Smaller than 40k has too many vertices
-            // (LARGE_GRAPH_VERT_SIZE = 1000). When loading on website it crashes when type
-            // is "graph-webgl" which "largegraph" is converted to; think this is a bridges
-            // bug?
+            /*
+             * Below needed to display larger graphs. Smaller than 40k has too many vertices
+             * (LARGE_GRAPH_VERT_SIZE = 1000). When loading on website it crashes when type
+             * is "graph-webgl" which "largegraph" is converted to; think this is a bridges
+             * bug?
+             */
             MSTGraph.forceSmallVisualization(true);
             bridges.setDataStructure(MSTGraph);
             bridges.setTitle(
@@ -86,6 +88,21 @@ public class App {
             } catch (Exception e) {
                 System.out.println(e);
             }
+
+            // find the ordered list of what vertices were visited when
+            // ArrayList<String> visited = DFS(childtoParent);
+            // loop through and grab the unique set (giving us an approximation for the
+            // hamiltonian circuit)
+            // ArrayList<String> uniqueVisited = new HashSet<>();
+            // for (String v : visited) {
+            // if (!uniqueVisited.contains(v))
+            // uniqueVisited.add(v);
+            // }
+            // build a graph based on unqiue visited vertices
+            // (v1 connect to v2, v2 to v3, ... last vertex to first vertex)
+            // GraphAdjList<String, String, Double> hamiltonianGraph =
+            // buildHamiltonianCircuit(uniqueVisited);
+
         }
     }
 
