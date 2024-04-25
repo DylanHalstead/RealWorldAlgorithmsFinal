@@ -54,14 +54,6 @@ public class App {
                 return;
             }
 
-            double totalCost = 0.;
-            for (Element<String> vertex : childtoParent.keySet()) {
-                Element<String> parent = childtoParent.get(vertex);
-                if (parent != null) {
-                    totalCost += graph.getEdgeData(vertex.getLabel(), parent.getLabel());
-                }
-            }
-
             if (childtoParent.size() > 200) {
                 vertexSize = 3.0;
                 edgeThickness = 1.0;
@@ -80,9 +72,8 @@ public class App {
             MSTGraph.forceSmallVisualization(true);
             bridges.setDataStructure(MSTGraph);
             bridges.setTitle(
-                    String.format("MST (US Cities) | Population Threshold: %d  | Vertices: %d | Edges: %d | Cost: %f",
-                            popThreshold,
-                            MSTGraph.getVertices().size(), childtoParent.size() - 1, totalCost));
+                    String.format("MST (US Cities) | Population Threshold: %d",
+                            popThreshold));
             try {
                 bridges.visualize();
             } catch (Exception e) {
