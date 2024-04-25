@@ -203,6 +203,16 @@ public class App {
                         String.valueOf(originalGraph.getEdgeData(vertex.getLabel(), parent.getLabel())));
             }
         }
+        // for every edge, create an edge going the other way (for bidirectional graphs)
+        for (String v : pathGraph.getVertices().keySet()) {
+            for (Edge<String, Double> edge : pathGraph.outgoingEdgeSetOf(v)) {
+                String src = edge.getFrom(), dest = edge.getTo();
+                pathGraph.addEdge(dest, src);
+                pathGraph.getLinkVisualizer(dest, src).setColor("red");
+                pathGraph.getLinkVisualizer(dest, src).setThickness(edgeThickness);
+                pathGraph.getLinkVisualizer(dest, src).setLabel(String.valueOf(pathGraph.getEdgeData(src, dest)));
+            }
+        }
         return pathGraph;
     }
 
