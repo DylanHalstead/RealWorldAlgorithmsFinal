@@ -2,6 +2,7 @@ import java.lang.String;
 import java.util.*;
 import java.io.IOException;
 import bridges.base.GraphAdjList;
+import bridges.base.LinkVisualizer;
 import bridges.base.SLelement;
 import bridges.connect.Bridges;
 import bridges.connect.DataSource;
@@ -13,8 +14,9 @@ import bridges.data_src_dependent.City;
 public class App {
 
     /*
-     * Lab 5 main function, builds test graph, the MST of said graph, and MST of US
-     * cities with populations based on popThresholds
+     * Traveling salesman final project main function, builds MST of city graph
+     * based on popThresholds and shows an approximation of optimal Hamiltonian
+     * Circuit
      * 
      * @param args command line arguments (args[0] assignemnt id, args[1] username,
      * args[2] api key)
@@ -24,15 +26,12 @@ public class App {
      * @throws RateLimitException when exceeding the rate limit of the bridges api
      */
     public static void main(String[] args) throws IOException, RateLimitException {
-
         Bridges bridges = new Bridges(Integer.parseInt(args[0]), args[1], args[2]);
         GraphAdjList<String, String, Double> graph = new GraphAdjList<>();
 
-        double edgeThickness = 3.0;
-        double vertexSize = 10.0;
         bridges.setCoordSystemType("albersusa");
         bridges.setMapOverlay(true);
-        int[] popThresholds = { 640_000, 320_000, 160_000 };
+        int[] popThresholds = { 320_000, 160_000, 80_000 };
         for (int popThreshold : popThresholds) {
             DataSource ds = bridges.getDataSource();
             HashMap<String, String> params = new HashMap<String, String>();
@@ -53,21 +52,23 @@ public class App {
                 }
             }
 
+            String startingVtx = "Charlotte_NC";
             graph = createCityGraph(cities);
-
             Map<Element<String>, Element<String>> childtoParent = fringePrimsAlgorithm(graph,
-                    graph.getVertex("Charlotte_NC"));
+                    graph.getVertex(startingVtx));
             if (childtoParent.equals(null)) {
                 System.out.println("Graph is not connected");
                 return;
             }
 
+            double edgeThickness;
+            double vertexSize;
             if (childtoParent.size() > 200) {
                 vertexSize = 3.0;
-                edgeThickness = 1.0;
+                edgeThickness = 1.5;
             } else {
-                vertexSize = 10.0;
-                edgeThickness = 3.0;
+                vertexSize = 8.0;
+                edgeThickness = 2.5;
             }
             GraphAdjList<String, String, Double> MSTGraph = createPathGraph(graph, childtoParent, vertexSize,
                     edgeThickness);
@@ -89,7 +90,7 @@ public class App {
             }
 
             // find the ordered list of what vertices were visited when
-            ArrayList<String> visited = DFS("Charlotte_NC", MSTGraph.getAdjacencyList());
+            ArrayList<String> visited = DFS(startingVtx, MSTGraph.getAdjacencyList());
             // loop through and grab the unique set (giving us an approximation for the
             // hamiltonian circuit)
             ArrayList<String> uniqueVisited = new ArrayList<>();
@@ -97,10 +98,7 @@ public class App {
                 if (!uniqueVisited.contains(v))
                     uniqueVisited.add(v);
             }
-            // build a graph based on unqiue visited vertices
-            visualizeHamiltonianCircuit(MSTGraph, uniqueVisited);
-
-            // visualize the hamiltonian circuit
+            visualizeHamiltonianCircuit(MSTGraph, uniqueVisited, edgeThickness);
             bridges.setTitle(
                     String.format("Hamiltonian Circuit (US Cities) | Population Threshold: %d",
                             popThreshold));
@@ -204,23 +202,73 @@ public class App {
                 pathParentVtx = pathGraph.getVertex(parent.getLabel());
                 pathGraph.addEdge(vertex.getLabel(), parent.getLabel(),
                         originalGraph.getEdgeData(vertex.getLabel(), parent.getLabel()));
-                pathGraph.getLinkVisualizer(pathVtx.getLabel(), pathParentVtx.getLabel()).setColor("red");
-                pathGraph.getLinkVisualizer(pathVtx.getLabel(), pathParentVtx.getLabel()).setThickness(edgeThickness);
-                pathGraph.getLinkVisualizer(pathVtx.getLabel(), pathParentVtx.getLabel()).setLabel(
-                        String.valueOf(originalGraph.getEdgeData(vertex.getLabel(), parent.getLabel())));
+                LinkVisualizer lv = pathGraph.getLinkVisualizer(pathVtx.getLabel(), pathParentVtx.getLabel());
+                lv.setColor("red");
+                lv.setThickness(edgeThickness);
+                lv.setLabel(String.valueOf(originalGraph.getEdgeData(vertex.getLabel(), parent.getLabel())));
             }
         }
         // for every edge, create an edge going the other way (for bidirectional graphs)
         for (String v : pathGraph.getVertices().keySet()) {
             for (Edge<String, Double> edge : pathGraph.outgoingEdgeSetOf(v)) {
                 String src = edge.getFrom(), dest = edge.getTo();
-                pathGraph.addEdge(dest, src);
-                pathGraph.getLinkVisualizer(dest, src).setColor("red");
-                pathGraph.getLinkVisualizer(dest, src).setThickness(edgeThickness);
-                pathGraph.getLinkVisualizer(dest, src).setLabel(String.valueOf(pathGraph.getEdgeData(src, dest)));
+                pathGraph.addEdge(dest, src, pathGraph.getEdgeData(src, dest));
+                LinkVisualizer lv = pathGraph.getLinkVisualizer(dest, src);
+                lv.setColor("red");
+                lv.setThickness(edgeThickness);
+                lv.setLabel(String.valueOf(pathGraph.getEdgeData(src, dest)));
             }
         }
         return pathGraph;
+    }
+
+    /*
+     * Visualize the hamiltonian circuit of a graph
+     * 
+     * @param graph the MST graph to visualize the hamiltonian circuit on
+     * 
+     * @param vertices the vertices in the order they were visited
+     * 
+     * @param edgeThickness the thickness of the edges in the circuit
+     */
+    static void visualizeHamiltonianCircuit(GraphAdjList<String, String, Double> graph, ArrayList<String> vertices,
+            double edgeThickness) {
+        // set all edges by default to be transparent and thin
+        for (String v : graph.getVertices().keySet()) {
+            for (Edge<String, Double> edge : graph.outgoingEdgeSetOf(v)) {
+                String src = edge.getFrom(), dest = edge.getTo();
+                graph.getLinkVisualizer(src, dest).setOpacity(.25f);
+                graph.getLinkVisualizer(src, dest).setThickness(Math.max(edgeThickness / 3, 1));
+            }
+        }
+        // add first vertex to end to complete the circuit
+        vertices.add(vertices.get(0));
+        for (int i = 0; i < vertices.size() - 1; i++) {
+            boolean foundEdge = false;
+            for (Edge<String, Double> edge : graph.outgoingEdgeSetOf(vertices.get(i))) {
+                String dest = edge.getTo();
+                if (dest.equals(vertices.get(i + 1))) {
+                    LinkVisualizer lv = graph.getLinkVisualizer(vertices.get(i), dest);
+                    lv.setColor("magenta");
+                    lv.setOpacity(1);
+                    lv.setThickness(edgeThickness);
+                    foundEdge = true;
+                    break;
+                }
+            }
+            if (!foundEdge) {
+                Element<String> vertex = graph.getVertex(vertices.get(i));
+                Element<String> nextVertex = graph.getVertex(vertices.get(i + 1));
+                Double dist = getDist(vertex.getLocationY(), vertex.getLocationX(),
+                        nextVertex.getLocationY(), nextVertex.getLocationX());
+                graph.addEdge(vertices.get(i), vertices.get(i + 1), dist);
+                LinkVisualizer lv = graph.getLinkVisualizer(vertices.get(i), vertices.get(i + 1));
+                lv.setColor("orange");
+                lv.setOpacity(1);
+                lv.setThickness(edgeThickness);
+                lv.setLabel(String.valueOf(dist));
+            }
+        }
     }
 
     /*
@@ -253,20 +301,44 @@ public class App {
                     double dist = getDist(city1.getLatitude(), city1.getLongitude(),
                             city2.getLatitude(), city2.getLongitude());
                     graph.addEdge(city1Label, city2Label, dist);
+                    LinkVisualizer lv = graph.getLinkVisualizer(city1Label, city2Label);
+                    lv.setLabel(String.valueOf(dist));
+                    graph.addEdge(city2Label, city1Label, dist);
+                    lv = graph.getLinkVisualizer(city2Label, city1Label);
+                    lv.setLabel(String.valueOf(dist));
                 }
             }
         }
 
-        // set edge labels
-        for (String v : graph.getVertices().keySet()) {
-            for (Edge<String, Double> edge : graph.outgoingEdgeSetOf(v)) {
-                String src = edge.getFrom(), dest = edge.getTo();
-                String l = String.valueOf(graph.getEdgeData(src, dest));
-                graph.getLinkVisualizer(src, dest).setLabel(l);
+        return graph;
+    }
+
+    /*
+     * Find the DFS traversal of a graph based on a starting vertex and the graph's
+     * adjacency list
+     * 
+     * @param startinVtx the starting vertex of the DFS traversal
+     * 
+     * @param adjacencyList the adjacency list of the graph
+     * 
+     * @return the chronological DFS traversal of the graph
+     */
+    static ArrayList<String> DFS(String startingVtx, HashMap<String, SLelement<Edge<String, Double>>> adjacencyList) {
+        ArrayList<String> visited = new ArrayList<>();
+        Stack<String> stack = new Stack<>();
+        stack.push(startingVtx);
+        while (!stack.isEmpty()) {
+            String currentVtx = stack.pop();
+            if (!visited.contains(currentVtx)) {
+                visited.add(currentVtx);
+                SLelement<Edge<String, Double>> edge = adjacencyList.get(currentVtx);
+                while (edge != null) {
+                    stack.push(edge.getValue().getTo());
+                    edge = edge.getNext();
+                }
             }
         }
-
-        return graph;
+        return visited;
     }
 
     /*
@@ -296,74 +368,5 @@ public class App {
                         * Math.sin(delLambda / 2) * Math.sin(delLambda / 2);
         final double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c; // meters
-    }
-
-    /*
-     * Find the DFS traversal of a graph based on the child-to-parent relationships
-     * 
-     * @param startinVtx the starting vertex of the DFS traversal
-     * 
-     * @param adjacencyList the adjacency list of the graph
-     * 
-     * @return the DFS traversal of the graph
-     */
-    static ArrayList<String> DFS(String startingVtx, HashMap<String, SLelement<Edge<String, Double>>> adjacencyList) {
-        ArrayList<String> visited = new ArrayList<>();
-        Stack<String> stack = new Stack<>();
-        stack.push(startingVtx);
-        while (!stack.isEmpty()) {
-            String currentVtx = stack.pop();
-            if (!visited.contains(currentVtx)) {
-                visited.add(currentVtx);
-                SLelement<Edge<String, Double>> edge = adjacencyList.get(currentVtx);
-                while (edge != null) {
-                    stack.push(edge.getValue().getTo());
-                    edge = edge.getNext();
-                }
-            }
-        }
-        return visited;
-    }
-
-    /*
-     * Visualize the hamiltonian circuit of a graph
-     * 
-     * @param graph the graph to visualize the hamiltonian circuit of
-     * 
-     * @param vertices the vertices in the order they were visited
-     */
-    static void visualizeHamiltonianCircuit(GraphAdjList<String, String, Double> graph, ArrayList<String> vertices) {
-        // set every edge to have an opacity of .5
-        for (String v : graph.getVertices().keySet()) {
-            for (Edge<String, Double> edge : graph.outgoingEdgeSetOf(v)) {
-                String src = edge.getFrom(), dest = edge.getTo();
-                graph.getLinkVisualizer(src, dest).setOpacity(.5f);
-                graph.getLinkVisualizer(src, dest).setThickness(1);
-            }
-        }
-        vertices.add(vertices.get(0));
-        for (int i = 0; i < vertices.size() - 1; i++) {
-            // get either the next vertex or the first vertex if we're at the end
-            Element<String> nextVertex = graph.getVertex(vertices.get(i + 1));
-            // find the edge between the two vertices
-            boolean foundEdge = false;
-            for (Edge<String, Double> edge : graph.outgoingEdgeSetOf(vertices.get(i))) {
-                String dest = edge.getTo();
-                if (dest.equals(nextVertex.getLabel())) {
-                    foundEdge = true;
-                    graph.getLinkVisualizer(vertices.get(i), dest).setColor("magenta");
-                    graph.getLinkVisualizer(vertices.get(i), dest).setOpacity(1);
-                    graph.getLinkVisualizer(vertices.get(i), dest).setThickness(2);
-                    break;
-                }
-            }
-            if (!foundEdge) {
-                graph.addEdge(vertices.get(i), vertices.get(i + 1));
-                graph.getLinkVisualizer(vertices.get(i), vertices.get(i + 1)).setColor("orange");
-                graph.getLinkVisualizer(vertices.get(i), vertices.get(i + 1)).setOpacity(1);
-                graph.getLinkVisualizer(vertices.get(i), vertices.get(i + 1)).setThickness(2);
-
-            }
-        }
     }
 }
