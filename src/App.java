@@ -31,7 +31,7 @@ public class App {
         double vertexSize = 10.0;
         bridges.setCoordSystemType("albersusa");
         bridges.setMapOverlay(true);
-        int[] popThresholds = { 870_000 };
+        int[] popThresholds = { 870_000, 640_000, 320_000 };
         for (int popThreshold : popThresholds) {
             DataSource ds = bridges.getDataSource();
             HashMap<String, String> params = new HashMap<String, String>();
@@ -317,9 +317,16 @@ public class App {
     }
 
     static void buildHamiltonianCircuit(GraphAdjList<String, String, Double> graph, ArrayList<String> vertices) {
+        // set every edge to have an opacity of .5
+        for (String v : graph.getVertices().keySet()) {
+            for (Edge<String, Double> edge : graph.outgoingEdgeSetOf(v)) {
+                String src = edge.getFrom(), dest = edge.getTo();
+                graph.getLinkVisualizer(src, dest).setOpacity(.5f);
+                graph.getLinkVisualizer(src, dest).setThickness(1);
+            }
+        }
         vertices.add(vertices.get(0));
         for (int i = 0; i < vertices.size() - 1; i++) {
-            graph.getVertex(vertices.get(i)).setColor("cyan");
             // get either the next vertex or the first vertex if we're at the end
             Element<String> nextVertex = graph.getVertex(vertices.get(i + 1));
             // find the edge between the two vertices
@@ -328,15 +335,18 @@ public class App {
                 String dest = edge.getTo();
                 if (dest.equals(nextVertex.getLabel())) {
                     foundEdge = true;
-                    graph.getLinkVisualizer(vertices.get(i), dest).setColor("cyan");
-                    graph.getLinkVisualizer(vertices.get(i), dest).setThickness(3.0);
+                    graph.getLinkVisualizer(vertices.get(i), dest).setColor("magenta");
+                    graph.getLinkVisualizer(vertices.get(i), dest).setOpacity(1);
+                    graph.getLinkVisualizer(vertices.get(i), dest).setThickness(2);
                     break;
                 }
             }
             if (!foundEdge) {
                 graph.addEdge(vertices.get(i), vertices.get(i + 1));
-                graph.getLinkVisualizer(vertices.get(i), vertices.get(i + 1)).setColor("cyan");
-                graph.getLinkVisualizer(vertices.get(i), vertices.get(i + 1)).setThickness(3.0);
+                graph.getLinkVisualizer(vertices.get(i), vertices.get(i + 1)).setColor("orange");
+                graph.getLinkVisualizer(vertices.get(i), vertices.get(i + 1)).setOpacity(1);
+                graph.getLinkVisualizer(vertices.get(i), vertices.get(i + 1)).setThickness(2);
+
             }
         }
     }
