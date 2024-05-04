@@ -2,6 +2,7 @@ import java.lang.String;
 import java.util.*;
 import java.io.IOException;
 import bridges.base.GraphAdjList;
+import bridges.base.SLelement;
 import bridges.connect.Bridges;
 import bridges.connect.DataSource;
 import bridges.base.Edge;
@@ -31,7 +32,7 @@ public class App {
         double vertexSize = 10.0;
         bridges.setCoordSystemType("albersusa");
         bridges.setMapOverlay(true);
-        int[] popThresholds = { 870_000, 640_000, 320_000 };
+        int[] popThresholds = { 640_000, 320_000, 160_000 };
         for (int popThreshold : popThresholds) {
             DataSource ds = bridges.getDataSource();
             HashMap<String, String> params = new HashMap<String, String>();
@@ -43,6 +44,13 @@ public class App {
             } catch (Exception e) {
                 System.out.println("Error: " + e.getMessage());
                 return;
+            }
+            // remove any cities in alaska or hawaii
+            for (int i = 0; i < cities.size(); i++) {
+                if (cities.get(i).getState().equals("AK") || cities.get(i).getState().equals("HI")) {
+                    cities.remove(i);
+                    i--;
+                }
             }
 
             graph = createCityGraph(cities);
@@ -81,12 +89,7 @@ public class App {
             }
 
             // find the ordered list of what vertices were visited when
-            ArrayList<String> visited = DFS(childtoParent);
-            // for (String v : visited) {
-            // System.out.print(v + " ");
-            // }
-            // factor out so it's a unqiue set of vertices
-
+            ArrayList<String> visited = DFS("Seattle_WA", MSTGraph.getAdjacencyList());
             // loop through and grab the unique set (giving us an approximation for the
             // hamiltonian circuit)
             ArrayList<String> uniqueVisited = new ArrayList<>();
@@ -95,8 +98,7 @@ public class App {
                     uniqueVisited.add(v);
             }
             // build a graph based on unqiue visited vertices
-            // (v1 connect to v2, v2 to v3, ... last vertex to first vertex)
-            buildHamiltonianCircuit(MSTGraph, uniqueVisited);
+            visualizeHamiltonianCircuit(MSTGraph, uniqueVisited);
 
             // visualize the hamiltonian circuit
             bridges.setTitle(
@@ -299,24 +301,38 @@ public class App {
     /*
      * Find the DFS traversal of a graph based on the child-to-parent relationships
      * 
-     * @param childtoParent the child-to-parent relationships of the graph
+     * @param startinVtx the starting vertex of the DFS traversal
+     * 
+     * @param adjacencyList the adjacency list of the graph
      * 
      * @return the DFS traversal of the graph
      */
-    static ArrayList<String> DFS(Map<Element<String>, Element<String>> childtoParent) {
+    static ArrayList<String> DFS(String startingVtx, HashMap<String, SLelement<Edge<String, Double>>> adjacencyList) {
         ArrayList<String> visited = new ArrayList<>();
-        for (Element<String> vertex : childtoParent.keySet()) {
-            visited.add(vertex.getLabel());
-            Element<String> parent = childtoParent.get(vertex);
-            while (parent != null) {
-                visited.add(parent.getLabel());
-                parent = childtoParent.get(parent);
+        Stack<String> stack = new Stack<>();
+        stack.push(startingVtx);
+        while (!stack.isEmpty()) {
+            String currentVtx = stack.pop();
+            if (!visited.contains(currentVtx)) {
+                visited.add(currentVtx);
+                SLelement<Edge<String, Double>> edge = adjacencyList.get(currentVtx);
+                while (edge != null) {
+                    stack.push(edge.getValue().getTo());
+                    edge = edge.getNext();
+                }
             }
         }
         return visited;
     }
 
-    static void buildHamiltonianCircuit(GraphAdjList<String, String, Double> graph, ArrayList<String> vertices) {
+    /*
+     * Visualize the hamiltonian circuit of a graph
+     * 
+     * @param graph the graph to visualize the hamiltonian circuit of
+     * 
+     * @param vertices the vertices in the order they were visited
+     */
+    static void visualizeHamiltonianCircuit(GraphAdjList<String, String, Double> graph, ArrayList<String> vertices) {
         // set every edge to have an opacity of .5
         for (String v : graph.getVertices().keySet()) {
             for (Edge<String, Double> edge : graph.outgoingEdgeSetOf(v)) {
