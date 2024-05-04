@@ -89,7 +89,7 @@ public class App {
             }
 
             // find the ordered list of what vertices were visited when
-            ArrayList<String> visited = DFS("Seattle_WA", MSTGraph.getAdjacencyList());
+            ArrayList<String> visited = DFS("Charlotte_NC", MSTGraph.getAdjacencyList());
             // loop through and grab the unique set (giving us an approximation for the
             // hamiltonian circuit)
             ArrayList<String> uniqueVisited = new ArrayList<>();
